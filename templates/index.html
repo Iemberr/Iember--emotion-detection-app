@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Emotion Detection Web App</title>
+    <style>
+      body {
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+        text-align: center;
+        background: #f4f4f4;
+        padding: 30px;
+        transition: background 0.5s;
+      }
+      .welcome-box,
+      .result-box {
+        display: inline-block;
+        padding: 20px;
+        border-radius: 15px;
+        margin: 20px auto;
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        background: #fff8dc;
+        max-width: 500px;
+      }
+      .welcome-box h2,
+      .result-box h2 {
+        color: #f7c843;
+        font-weight: bold;
+      }
+      .username {
+        font-weight: bold;
+        color: #ff9900;
+      }
+      .buttons {
+        margin: 15px;
+      }
+      button {
+        padding: 10px 20px;
+        margin: 10px;
+        border-radius: 10px;
+        border: none;
+        background: #f7c843;
+        color: #333;
+        font-weight: bold;
+        cursor: pointer;
+        transition: background 0.3s;
+      }
+      button:hover {
+        background: #ff9900;
+        color: #fff;
+      }
+      #image-display {
+        margin-top: 20px;
+        border-radius: 15px;
+        max-width: 250px;
+        display: block;
+        margin-left: auto;
+        margin-right: auto;
+      }
+      video {
+        border-radius: 15px;
+        margin-top: 15px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="welcome-box" id="name-box">
+      <h2>Enter Your Name</h2>
+      <input type="text" id="username" placeholder="Your Name" required />
+      <button id="submit-name">Submit</button>
+    </div>
+
+    <div id="welcome-section" style="display: none">
+      <div class="welcome-box">
+        <h2>Welcome, <span id="display-name" class="username"></span></h2>
+        <p>
+          Ensure you are in a well-lit environment, so we can accurately detect
+          your emotion.
+        </p>
+      </div>
+      <div class="buttons">
+        <button id="upload-btn">Upload Image</button>
+        <button id="webcam-btn">Use Webcam</button>
+      </div>
+    </div>
+
+    <div id="upload-section" style="display: none">
+      <input type="file" id="image-input" accept="image/*" />
+      <button id="detect-upload">Detect Emotion</button>
+    </div>
+
+    <div id="webcam-section" style="display: none">
+      <video id="video" width="320" height="240" autoplay></video><br />
+      <button id="capture-webcam">Capture Emotion</button>
+    </div>
+
+    <div class="result-box" id="result-box" style="display: none">
+      <h2 id="emotion-text"></h2>
+      <img id="image-display" src="" alt="Captured Image" />
+      <button id="try-again">Detect again</button>
+    </div>
+    <!-- Keep the rest of your HTML as before, just update the JS part -->
+
+    <script>
+      const nameBox = document.getElementById("name-box");
+      const welcomeSection = document.getElementById("welcome-section");
+      const usernameInput = document.getElementById("username");
+      const displayName = document.getElementById("display-name");
+      const uploadBtn = document.getElementById("upload-btn");
+      const webcamBtn = document.getElementById("webcam-btn");
+      const uploadSection = document.getElementById("upload-section");
+      const webcamSection = document.getElementById("webcam-section");
+      const imageInput = document.getElementById("image-input");
+      const detectUpload = document.getElementById("detect-upload");
+      const video = document.getElementById("video");
+      const captureWebcam = document.getElementById("capture-webcam");
+      const resultBox = document.getElementById("result-box");
+      const emotionText = document.getElementById("emotion-text");
+      const imageDisplay = document.getElementById("image-display");
+      const tryAgain = document.getElementById("try-again");
+
+      let username = "";
+      let webcamStream = null;
+
+      // Submit name
+      document.getElementById("submit-name").onclick = () => {
+        if (usernameInput.value.trim() !== "") {
+          username = usernameInput.value.trim();
+          displayName.textContent = username;
+          nameBox.style.display = "none";
+          welcomeSection.style.display = "block";
+        }
+      };
+
+      // Show upload image section
+      uploadBtn.onclick = () => {
+        uploadSection.style.display = "block";
+        webcamSection.style.display = "none";
+        // Stop webcam if running
+        if (webcamStream) {
+          webcamStream.getTracks().forEach((track) => track.stop());
+          webcamStream = null;
+        }
+      };
+
+      // Show webcam section
+      webcamBtn.onclick = () => {
+        webcamSection.style.display = "block";
+        uploadSection.style.display = "none";
+        // Start webcam only if not already started
+        if (
+          !webcamStream &&
+          navigator.mediaDevices &&
+          navigator.mediaDevices.getUserMedia
+        ) {
+          navigator.mediaDevices
+            .getUserMedia({ video: true })
+            .then((stream) => {
+              webcamStream = stream;
+              video.srcObject = stream;
+            })
+            .catch((err) => console.error("Webcam error:", err));
+        }
+      };
+
+      function updateBackground(emotion) {
+        const colors = {
+          happy: "lightgreen",
+          angry: "red",
+          sad: "grey",
+          surprise: "orange",
+          disgust: "brown",
+          neutral: "beige",
+        };
+        document.body.style.background = colors[emotion] || "#f4f4f4";
+      }
+
+      // Detect uploaded image
+      detectUpload.onclick = () => {
+        if (imageInput.files.length === 0)
+          return alert("Choose an image first!");
+        const formData = new FormData();
+        formData.append("name", username);
+        formData.append("image", imageInput.files[0]);
+
+        fetch("/detect", { method: "POST", body: formData })
+          .then((res) => res.json())
+          .then((data) => {
+            uploadSection.style.display = "none";
+            webcamSection.style.display = "none";
+            welcomeSection.style.display = "none";
+            resultBox.style.display = "block";
+            emotionText.textContent = `${data.username} is ${data.emotion}`;
+            imageDisplay.src = data.image_path;
+            updateBackground(data.emotion.toLowerCase());
+            // Stop webcam if running
+            if (webcamStream) {
+              webcamStream.getTracks().forEach((track) => track.stop());
+              webcamStream = null;
+            }
+          });
+      };
+
+      // Detect webcam capture
+      captureWebcam.onclick = () => {
+        const canvas = document.createElement("canvas");
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext("2d").drawImage(video, 0, 0);
+        canvas.toBlob((blob) => {
+          const formData = new FormData();
+          formData.append("name", username);
+          formData.append("webcam_image", blob, "webcam.jpg");
+          fetch("/detect", { method: "POST", body: formData })
+            .then((res) => res.json())
+            .then((data) => {
+              uploadSection.style.display = "none";
+              webcamSection.style.display = "none";
+              welcomeSection.style.display = "none";
+              resultBox.style.display = "block";
+              emotionText.textContent = `${data.username} is ${data.emotion}`;
+              imageDisplay.src = data.image_path;
+              updateBackground(data.emotion.toLowerCase());
+              // Stop webcam
+              if (webcamStream) {
+                webcamStream.getTracks().forEach((track) => track.stop());
+                webcamStream = null;
+              }
+            });
+        }, "image/jpeg");
+      };
+
+      // Try again button
+      tryAgain.onclick = () => {
+        resultBox.style.display = "none";
+        welcomeSection.style.display = "block";
+        uploadSection.style.display = "none";
+        webcamSection.style.display = "none";
+        imageInput.value = "";
+        imageDisplay.src = "";
+        document.body.style.background = "#f4f4f4";
+      };
+    </script>
+  </body>
+</html>

@@ -1,0 +1,7 @@
+venv/
+__pycache__/
+*.pyc
+dataset/
+*.h5
+database.db
+*.DS_Store
